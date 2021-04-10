@@ -5,14 +5,14 @@ class ApiController < ActionController::API #ApplicationController
             @user = User.find_by(email: params[:email])
             if @user&.valid_password?(params[:password])
                 render json: {
-                    data: signup_params
+                    data: @user.as_json(only: [:name, :token, :email, :created_at, :sexe, :second_name, :color, :relationship, :gener, :job, :phone])
                 }, status: :ok
             else
                 render json: {
                     message: "Account or password not found or invalid",
                     errors: {
-                        error_code: "",
-                        error_description: ""
+                        error_code: "X404",
+                        error_description: "Account not found"
                     }
                 }, status: 401
             end
@@ -20,8 +20,8 @@ class ApiController < ActionController::API #ApplicationController
             render json: {
                 message: "Missing parameters",
                 errors: {
-                    error_code: "",
-                    error_description: ""
+                    error_code: "X4OO",
+                    error_description: "Not parameters"
                 }
             }, status: 401
         end
