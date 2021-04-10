@@ -66,3 +66,5 @@ gem "faker", "~> 2.17"
 gem "quickemailverification", "~> 1.0"
 
 gem "aws-sdk-s3", "~> 1.93", require: false
+
+gem "money-rails", "~> 1.14"
