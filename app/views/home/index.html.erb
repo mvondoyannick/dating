@@ -75,7 +75,7 @@
                   Status
                 </th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role
+                  Friends
                 </th>
                 <th scope="col" class="relative px-6 py-3">
                   <span class="sr-only">Edit</span>
@@ -102,7 +102,7 @@
                           <%= user.name %>
                         </div>
                         <div class="text-sm text-gray-500">
-                          <%= user.created_at %>
+                          <%= user.created_at.strftime('%d-%b-%Y - %HH:%Mm') %>
                         </div>
                       </div>
                     </div>
@@ -117,7 +117,7 @@
                     </span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    Admin
+                    Admin (<%= user.friend.where(status: :accept).count %>)
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <%= link_to 'Details', details_path(user_token: user.token), class: "text-indigo-600 hover:text-indigo-900" %>

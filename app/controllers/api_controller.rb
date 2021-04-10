@@ -1,18 +1,33 @@
 class ApiController < ActionController::API #ApplicationController
   before_action :user_account, except: [:signin, :signup]
+  before_action :add_friend_verification_params, only: [:add_friend, :accept_friend_request]
     def signin
         if signup_params.present?
             @user = User.find_by(email: params[:email])
             if @user&.valid_password?(params[:password])
                 render json: {
                     data: @user.as_json(only: [:name, :token, :email, :created_at, :sexe, :second_name, :color, :relationship, :gener, :job, :phone]),
-                    friends: @user.friend.map do |friend|
+                    friends: @user.friend.where(status: "accept").map do |friend|
                       {
                         id: friend.friend,
-                        name: User.find(friend.friend).name,
+                        name: User.find(friend.friend).name.capitalize,
                         sexe: User.find(friend.friend).sex,
                         avatar: "#{request.base_url}#{Rails.application.routes.url_helpers.rails_blob_path(User.find(friend.friend).avatar, only_path: true)}",
-                        color: User.find(friend.friend).created_at,
+                        added: User.find(friend.friend).created_at,
+                        color: User.find(friend.friend).color,
+                        relationship: User.find(friend.friend).relationship,
+                        gender: User.find(friend.friend).gender,
+                        job: User.find(friend.friend).job
+                      }
+                    end,
+                    pending: @user.friend.where(status: "pending").map do |friend|
+                      {
+                        id: friend.friend,
+                        name: User.find(friend.friend).name.capitalize,
+                        sexe: User.find(friend.friend).sex,
+                        avatar: "#{request.base_url}#{Rails.application.routes.url_helpers.rails_blob_path(User.find(friend.friend).avatar, only_path: true)}",
+                        added: User.find(friend.friend).created_at,
+                        color: User.find(friend.friend).color,
                         relationship: User.find(friend.friend).relationship,
                         gender: User.find(friend.friend).gender,
                         job: User.find(friend.friend).job
@@ -100,27 +115,33 @@ class ApiController < ActionController::API #ApplicationController
     # add friends to list
     def add_friend
       # check if this friend isnt't to our list friend
-      @current_user = User.find(params[:user_id])
-      if @current_user.friend.find_by(friend: params[:friend_id])
+      if params[:user_id].to_i == params[:friend_id].to_i 
         render json: {
-          message: "#{User.find(params[:user_id]).name} can't be added, You are friend with this user",
-          errors: {
-            error_code: "",
-            error_description: ""
-          }
-        }, status: 401
+          message: "Not yourself"
+        }, status: 400
       else
-        # add friend
-        puts "Starting adding friend ..."
-        @new = @current_user.friend.new(friend: params[:friend_id])
-        if @new.save
+        @current_user = User.find(params[:user_id])
+        if @current_user.friend.find_by(friend: params[:friend_id])
           render json: {
-            message: "#{User.find(params[:user_id]).name} added as friend"
-          }, status: 201
-        else
-          render json: {
-            message: @new.errors.messages
+            message: "#{User.find(params[:user_id]).name} can't be added, You are friend with this user",
+            errors: {
+              error_code: "",
+              error_description: ""
+            }
           }, status: 401
+        else
+          # add friend
+          puts "Starting adding friend ..."
+          @new = @current_user.friend.new(friend: params[:friend_id], status: :pending)
+          if @new.save
+            render json: {
+              message: "#{User.find(params[:user_id]).name} added as friend"
+            }, status: 201
+          else
+            render json: {
+              message: @new.errors.messages
+            }, status: 401
+          end
         end
       end
 
@@ -132,9 +153,10 @@ class ApiController < ActionController::API #ApplicationController
       render json: {
         pending_friend: @current_user.friend.where(status: :pending).map do |friend|
           {
-            id: friend.id,
+            id: friend.friend,
             name: User.find(friend.friend).name,
-            avatar: "#{request.base_url}#{Rails.application.routes.url_helpers.rails_blob_path(User.find(friend.friend).avatar, only_path: true)}"
+            avatar: "#{request.base_url}#{Rails.application.routes.url_helpers.rails_blob_path(User.find(friend.friend).avatar, only_path: true)}",
+            status: friend.status
           }
         end
       }, status: :ok
@@ -143,18 +165,43 @@ class ApiController < ActionController::API #ApplicationController
     #
     def accept_friend_request
       @current_user = User.find(params[:user_id])
+      @current_friend = User.find(params[:friend_id])
 
-      # begin update
-      @new_friend = @current_user.friend.find_by(friend: params[:friend_id])
-      @new_friend.status = "accept"
-      if @new_friend.save
+      if Friend.exists?(user_id: params[:user_id], friend: params[:friend_id], status: :accept) && Friend.exists?(user_id: params[:friend_id], friend: params[:user_id], status: :accept)
+
         render json: {
-          message: "Request new friend accepted_by #{@current_user.name}"
-        }, status: :ok
-      else
-        render json: {
-          message: @new_friend.errors.messages
+          message: "You are already friend with this user !"
         }, status: 401
+
+      else
+
+        # begin update
+        if @current_user.friend.update(friend: params[:friend_id], status: :accept)
+
+          # make request
+          puts "Friend ID : #{params[:friend_id]}"
+          @request = Friend.new(user_id: params[:user_id], friend: params[:friend_id], status: :accept)
+
+          # save
+          if @request.save
+
+          render json: {
+            message: "Request new friend accepted_by #{@current_user.name}, you can now talk with #{User.find(params[:user_id]).name}."
+          }, status: :ok
+
+          else
+
+            render json: {
+              message: "Linking to friends failled! #{@request.errors.messages}"
+            }, status: 401
+
+          end
+        else
+          render json: {
+            message: "Unable to associate this friend"
+          }, status: 401
+        end
+
       end
 
     end
@@ -194,6 +241,19 @@ class ApiController < ActionController::API #ApplicationController
 
     # create post params
     def post_params
+    end
+
+    # def add friend params verification
+    def add_friend_verification_params
+      if User.exists?(id: params[:user_id]) && User.exists?(id: params[:friend_id])
+        # good
+      else
+
+        render json: {
+          message: "Unknow user or friend"
+        }, status: 401
+
+      end
     end
 
     # verify user
