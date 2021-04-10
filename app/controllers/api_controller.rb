@@ -5,7 +5,19 @@ class ApiController < ActionController::API #ApplicationController
             @user = User.find_by(email: params[:email])
             if @user&.valid_password?(params[:password])
                 render json: {
-                    data: @user.as_json(only: [:name, :token, :email, :created_at, :sexe, :second_name, :color, :relationship, :gener, :job, :phone])
+                    data: @user.as_json(only: [:name, :token, :email, :created_at, :sexe, :second_name, :color, :relationship, :gener, :job, :phone]),
+                    friends: @user.friend.map do |friend|
+                      {
+                        id: friend.friend,
+                        name: User.find(friend.friend).name,
+                        sexe: User.find(friend.friend).sex,
+                        avatar: "#{request.base_url}#{Rails.application.routes.url_helpers.rails_blob_path(User.find(friend.friend).avatar, only_path: true)}",
+                        color: User.find(friend.friend).created_at,
+                        relationship: User.find(friend.friend).relationship,
+                        gender: User.find(friend.friend).gender,
+                        job: User.find(friend.friend).job
+                      }
+                    end
                 }, status: :ok
             else
                 render json: {
