@@ -48,7 +48,8 @@ test:
 #     url: <%= ENV['DATABASE_URL'] %>
 #
 production:
-  <<: *default
-  database: datingAPI_production
-  username: datingAPI
-  password: <%= ENV['DATINGAPI_DATABASE_PASSWORD'] %>
+  #<<: *default
+  #database: datingAPI_production
+  #username: datingAPI
+  #password: <%= ENV['DATINGAPI_DATABASE_PASSWORD'] %>
+  url: <%= ENV['CLEARDB_DATABASE_URL'] %>
